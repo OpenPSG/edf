@@ -48,6 +48,34 @@ func (ew *Writer) Close() error {
 	return nil
 }
 
+// WriteRecord writes a data record to the EDF+ file.
+func (ew *Writer) WriteRecord(signals [][]float64) error {
+	if len(signals) != ew.hdr.SignalCount {
+		return fmt.Errorf("expected %d signals, got %d", ew.hdr.SignalCount, len(signals))
+	}
+
+	writer := bufio.NewWriter(ew.w)
+
+	// Write each signal's data
+	for i := 0; i < ew.hdr.SignalCount; i++ {
+		signal := ew.hdr.Signals[i]
+		for _, sample := range signals[i] {
+			digitalValue := convertPhysicalToDigital(sample, signal.PhysicalMin, signal.PhysicalMax, signal.DigitalMin, signal.DigitalMax)
+			if err := binary.Write(writer, binary.LittleEndian, int16(digitalValue)); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Ensure all data is flushed to the underlying writer
+	if err := writer.Flush(); err != nil {
+		return err
+	}
+
+	ew.dataRecords++
+	return nil
+}
+
 // WriteHeader writes an EDF+ header to the given writer.
 func (ew *Writer) writeHeader() error {
 	// Rewind to the beginning of the file.
@@ -189,34 +217,6 @@ func (ew *Writer) writeHeader() error {
 
 	// Ensure all data is flushed to the underlying writer
 	return writer.Flush()
-}
-
-// Write writes a data record to the EDF+ file.
-func (ew *Writer) Write(signals [][]float64) error {
-	if len(signals) != ew.hdr.SignalCount {
-		return fmt.Errorf("expected %d signals, got %d", ew.hdr.SignalCount, len(signals))
-	}
-
-	writer := bufio.NewWriter(ew.w)
-
-	// Write each signal's data
-	for i := 0; i < ew.hdr.SignalCount; i++ {
-		signal := ew.hdr.Signals[i]
-		for _, sample := range signals[i] {
-			digitalValue := convertPhysicalToDigital(sample, signal.PhysicalMin, signal.PhysicalMax, signal.DigitalMin, signal.DigitalMax)
-			if err := binary.Write(writer, binary.LittleEndian, int16(digitalValue)); err != nil {
-				return err
-			}
-		}
-	}
-
-	// Ensure all data is flushed to the underlying writer
-	if err := writer.Flush(); err != nil {
-		return err
-	}
-
-	ew.dataRecords++
-	return nil
 }
 
 // convertPhysicalToDigital converts a physical value to a digital value using the calibration factors.

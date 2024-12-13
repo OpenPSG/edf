@@ -58,7 +58,7 @@ func TestWriter(t *testing.T) {
 	}
 
 	// Write the first data record
-	err = ew.Write([][]float64{record})
+	err = ew.WriteRecord([][]float64{record})
 	require.NoError(t, err)
 
 	for i := range record {
@@ -66,7 +66,7 @@ func TestWriter(t *testing.T) {
 	}
 
 	// Write the second data record
-	err = ew.Write([][]float64{record})
+	err = ew.WriteRecord([][]float64{record})
 	require.NoError(t, err)
 
 	// Close the writer (this writes the header)
