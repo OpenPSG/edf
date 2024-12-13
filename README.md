@@ -1,2 +1,3 @@
 # edf
-A European Data Format Library For Go
+
+A European Data Format EDF/EDF+ Implementation For Go.
