@@ -14,16 +14,17 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 )
 
-// Writer writes EDF+ files.
+// Writer writes EDF files.
 type Writer struct {
 	w           io.WriteSeeker
 	hdr         *Header
 	dataRecords int // Number of data records written so far.
 }
 
-// Create creates a new EDF+ writer that writes to the given writer.
+// Create creates a new EDF writer that writes to the given writer.
 func Create(w io.WriteSeeker, hdr Header) (*Writer, error) {
 	hdr.DataRecords = -1 // Unknown number of data records (at this time).
 
@@ -37,7 +38,7 @@ func Create(w io.WriteSeeker, hdr Header) (*Writer, error) {
 	return ew, nil
 }
 
-// Close finalizes the EDF+ file by updating the header with the correct number of data records and closing the file.
+// Close finalizes the EDF file by updating the header with the total number of data records.
 func (ew *Writer) Close() error {
 	// Finalize the header with the actual number of data records
 	ew.hdr.DataRecords = ew.dataRecords
@@ -48,10 +49,20 @@ func (ew *Writer) Close() error {
 	return nil
 }
 
-// WriteRecord writes a data record to the EDF+ file.
+// WriteRecord writes a single data record to the EDF file.
 func (ew *Writer) WriteRecord(signals [][]float64) error {
 	if len(signals) != ew.hdr.SignalCount {
 		return fmt.Errorf("expected %d signals, got %d", ew.hdr.SignalCount, len(signals))
+	}
+
+	var totalSamples int
+	for _, signal := range signals {
+		totalSamples += len(signal)
+	}
+
+	// As recommended by the EDF standard.
+	if totalSamples*2 > 61440 {
+		return fmt.Errorf("data record too large: %d bytes, max is 61440 bytes", totalSamples*2)
 	}
 
 	writer := bufio.NewWriter(ew.w)
@@ -76,7 +87,7 @@ func (ew *Writer) WriteRecord(signals [][]float64) error {
 	return nil
 }
 
-// WriteHeader writes an EDF+ header to the given writer.
+// WriteHeader writes an EDF header to the given writer.
 func (ew *Writer) writeHeader() error {
 	// Rewind to the beginning of the file.
 	_, err := ew.w.Seek(0, io.SeekStart)
@@ -119,7 +130,7 @@ func (ew *Writer) writeHeader() error {
 		return err
 	}
 
-	// 44 reserved bytes
+	// Write 44 empty reserved bytes.
 	_, err = writer.WriteString(fmt.Sprintf("%-44s", ""))
 	if err != nil {
 		return err
@@ -132,7 +143,7 @@ func (ew *Writer) writeHeader() error {
 	}
 
 	// Write data record duration
-	_, err = writer.WriteString(fmt.Sprintf("%-8.2f", ew.hdr.DataRecordDuration.Seconds()))
+	_, err = writer.WriteString(fmt.Sprintf("%-8d", int(math.Ceil(ew.hdr.DataRecordDuration.Seconds()))))
 	if err != nil {
 		return err
 	}

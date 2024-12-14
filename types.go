@@ -14,25 +14,26 @@ import "time"
 type Version string
 
 const (
-	// Version0 represents the version of the EDF/EDF+ standard.
+	// Version0 represents the version of the EDF standard.
 	Version0 Version = "0"
 )
 
 // Header represents the EDF/EDF+ file header.
 type Header struct {
-	Version            Version       // Version of the EDF/EDF+ standard (usually "0")
-	PatientID          string        // Identification of the patient
-	RecordingID        string        // Identification of the recording session
-	StartTime          time.Time     // Start date of the recording
-	HeaderBytes        int           // Number of bytes in the header
-	DataRecordDuration time.Duration // Duration of a single data record in seconds
-	DataRecords        int           // Number of data records, -1 if unknown
-	SignalCount        int           // Number of signals in each data record
-	Signals            []Signal      // Details of each signal
+	Version            Version        // Version of the EDF standard.
+	PatientID          string         // Identification of the patient
+	RecordingID        string         // Identification of the recording session
+	StartTime          time.Time      // Start date of the recording
+	HeaderBytes        int            // Number of bytes in the header
+	Reserved           string         // Reserved for future use
+	DataRecordDuration time.Duration  // Duration of a single data record in seconds
+	DataRecords        int            // Number of data records, -1 if unknown
+	SignalCount        int            // Number of signals in each data record
+	Signals            []SignalHeader // Details of each signal
 }
 
-// Signal represents the characteristics of each signal in the EDF/EDF+ file.
-type Signal struct {
+// SignalHeader represents the characteristics of each signal in the EDF/EDF+ file.
+type SignalHeader struct {
 	Label             string  // Label of the signal (e.g., EEG Fpz-Cz)
 	TransducerType    string  // Type of transducer used
 	PhysicalDimension string  // Physical dimension (e.g., uV, mV)

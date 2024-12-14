@@ -19,13 +19,13 @@ import (
 	"time"
 )
 
-// Reader reads EDF/EDF+ files.
+// Reader reads EDF files.
 type Reader struct {
 	r   io.ReadSeeker
 	hdr *Header
 }
 
-// Open opens an EDF/EDF+ file for reading.
+// Open opens an EDF file for reading.
 func Open(r io.ReadSeeker) (*Reader, error) {
 	reader := bufio.NewReader(r)
 
@@ -62,6 +62,9 @@ func Open(r io.ReadSeeker) (*Reader, error) {
 	}
 	hdr.HeaderBytes = headerBytes
 
+	// Skip reserved bytes
+	hdr.Reserved = strings.TrimSpace(string(b[192:236]))
+
 	numDataRecords, err := strconv.Atoi(strings.TrimSpace(string(b[236:244])))
 	if err != nil {
 		return nil, fmt.Errorf("error parsing number of data records: %w", err)
@@ -80,7 +83,7 @@ func Open(r io.ReadSeeker) (*Reader, error) {
 	hdr.SignalCount = signalCount
 
 	// Read signal headers
-	hdr.Signals = make([]Signal, signalCount)
+	hdr.Signals = make([]SignalHeader, signalCount)
 
 	for i := 0; i < signalCount; i++ {
 		b := make([]byte, 16)
@@ -178,7 +181,7 @@ func Open(r io.ReadSeeker) (*Reader, error) {
 	}, nil
 }
 
-// SignalReader reads continuous signal data from an EDF/EDF+ file.
+// SignalReader reads continuous signal data from an EDF file.
 type SignalReader struct {
 	r                io.ReadSeeker
 	hdr              *Header
@@ -216,7 +219,7 @@ func (er *Reader) Signal(signalIndex int) (*SignalReader, error) {
 	}, nil
 }
 
-// Read fills the provided float64 slice with the physical values from the signal.
+// Read reads data from the signal.
 func (sr *SignalReader) Read(data []float64) (int, error) {
 	buf := make([]byte, 2)
 

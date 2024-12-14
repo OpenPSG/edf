@@ -34,7 +34,7 @@ func TestWriter(t *testing.T) {
 		StartTime:          time.Now(),
 		DataRecordDuration: 60 * time.Second,
 		SignalCount:        1,
-		Signals: []edf.Signal{
+		Signals: []edf.SignalHeader{
 			{
 				Label:             "EEG Fpz-Cz",
 				TransducerType:    "AgAgCl electrode",
