@@ -177,14 +177,14 @@ func (ew *Writer) writeHeader() error {
 	}
 
 	for _, signal := range ew.hdr.Signals {
-		_, err = writer.WriteString(fmt.Sprintf("%-8.2f", signal.PhysicalMin))
+		_, err = writer.WriteString(formatPhysicalValue(signal.PhysicalMin))
 		if err != nil {
 			return err
 		}
 	}
 
 	for _, signal := range ew.hdr.Signals {
-		_, err = writer.WriteString(fmt.Sprintf("%-8.2f", signal.PhysicalMax))
+		_, err = writer.WriteString(formatPhysicalValue(signal.PhysicalMax))
 		if err != nil {
 			return err
 		}
@@ -237,4 +237,14 @@ func convertPhysicalToDigital(physical float64, pmin, pmax float64, dmin, dmax i
 	}
 	digital := ((physical - pmin) * (float64(dmax - dmin)) / (pmax - pmin)) + float64(dmin)
 	return int16(digital)
+}
+
+func formatPhysicalValue(val float64) string {
+	// Try with 2 decimal places
+	s := fmt.Sprintf("%.2f", val)
+	if len(s) > 8 {
+		// Fall back to no decimal
+		s = fmt.Sprintf("%.0f", val)
+	}
+	return fmt.Sprintf("%-8s", s)
 }
