@@ -97,131 +97,129 @@ func (ew *Writer) writeHeader() error {
 
 	writer := bufio.NewWriter(ew.w)
 
+	writeChecked := func(fieldName, value string, length int) error {
+		if len(value) > length {
+			return fmt.Errorf("%s '%s' is too long (%d > %d)", fieldName, value, len(value), length)
+		}
+		_, err := writer.WriteString(fmt.Sprintf("%-*s", length, value))
+		return err
+	}
+
+	formatPhysicalValue := func(val float64) (string, error) {
+		s := fmt.Sprintf("%.2f", val)
+		if len(s) > 8 {
+			s = fmt.Sprintf("%.0f", val)
+			if len(s) > 8 {
+				return "", fmt.Errorf("physical value %.2f too long to fit in 8 bytes", val)
+			}
+		}
+		return fmt.Sprintf("%-8s", s), nil
+	}
+
 	// Write version, patient and recording IDs
-	_, err = writer.WriteString(fmt.Sprintf("%-8s", ew.hdr.Version))
-	if err != nil {
+	if err := writeChecked("Version", string(ew.hdr.Version), 8); err != nil {
 		return err
 	}
-	_, err = writer.WriteString(fmt.Sprintf("%-80s", ew.hdr.PatientID))
-	if err != nil {
+	if err := writeChecked("PatientID", ew.hdr.PatientID, 80); err != nil {
 		return err
 	}
-	_, err = writer.WriteString(fmt.Sprintf("%-80s", ew.hdr.RecordingID))
-	if err != nil {
+	if err := writeChecked("RecordingID", ew.hdr.RecordingID, 80); err != nil {
 		return err
 	}
 
 	// Write start date and time
 	dateStr := ew.hdr.StartTime.Format("02.01.06")
 	timeStr := ew.hdr.StartTime.Format("15.04.05")
-	_, err = writer.WriteString(fmt.Sprintf("%-8s", dateStr))
-	if err != nil {
+	if err := writeChecked("StartDate", dateStr, 8); err != nil {
 		return err
 	}
-	_, err = writer.WriteString(fmt.Sprintf("%-8s", timeStr))
-	if err != nil {
+	if err := writeChecked("StartTime", timeStr, 8); err != nil {
 		return err
 	}
 
 	// Write header bytes, data records, etc.
 	ew.hdr.HeaderBytes = 256 + (ew.hdr.SignalCount * 256)
-	_, err = writer.WriteString(fmt.Sprintf("%-8d", ew.hdr.HeaderBytes))
-	if err != nil {
+	if err := writeChecked("HeaderBytes", fmt.Sprintf("%d", ew.hdr.HeaderBytes), 8); err != nil {
 		return err
 	}
 
 	// Write 44 empty reserved bytes.
-	_, err = writer.WriteString(fmt.Sprintf("%-44s", ""))
-	if err != nil {
+	if err := writeChecked("Reserved", "", 44); err != nil {
 		return err
 	}
 
 	// Write the number of data records.
-	_, err = writer.WriteString(fmt.Sprintf("%-8d", ew.hdr.DataRecords))
-	if err != nil {
+	if err := writeChecked("DataRecords", fmt.Sprintf("%d", ew.hdr.DataRecords), 8); err != nil {
 		return err
 	}
 
 	// Write data record duration
-	_, err = writer.WriteString(fmt.Sprintf("%-8d", int(math.Ceil(ew.hdr.DataRecordDuration.Seconds()))))
-	if err != nil {
+	if err := writeChecked("Duration", fmt.Sprintf("%d", int(math.Ceil(ew.hdr.DataRecordDuration.Seconds()))), 8); err != nil {
 		return err
 	}
 
 	// Write signal count
-	_, err = writer.WriteString(fmt.Sprintf("%-4d", ew.hdr.SignalCount))
-	if err != nil {
+	if err := writeChecked("SignalCount", fmt.Sprintf("%d", ew.hdr.SignalCount), 4); err != nil {
 		return err
 	}
 
-	// Write signal details
-	for _, signal := range ew.hdr.Signals {
-		_, err = writer.WriteString(fmt.Sprintf("%-16s", signal.Label))
-		if err != nil {
+	for i, signal := range ew.hdr.Signals {
+		if err := writeChecked(fmt.Sprintf("Signal[%d].Label", i), signal.Label, 16); err != nil {
 			return err
 		}
 	}
-
-	for _, signal := range ew.hdr.Signals {
-		_, err = writer.WriteString(fmt.Sprintf("%-80s", signal.TransducerType))
-		if err != nil {
+	for i, signal := range ew.hdr.Signals {
+		if err := writeChecked(fmt.Sprintf("Signal[%d].TransducerType", i), signal.TransducerType, 80); err != nil {
 			return err
 		}
 	}
-
-	for _, signal := range ew.hdr.Signals {
-		_, err = writer.WriteString(fmt.Sprintf("%-8s", signal.PhysicalDimension))
-		if err != nil {
+	for i, signal := range ew.hdr.Signals {
+		if err := writeChecked(fmt.Sprintf("Signal[%d].PhysicalDimension", i), signal.PhysicalDimension, 8); err != nil {
 			return err
 		}
 	}
-
-	for _, signal := range ew.hdr.Signals {
-		_, err = writer.WriteString(formatPhysicalValue(signal.PhysicalMin))
+	for i, signal := range ew.hdr.Signals {
+		str, err := formatPhysicalValue(signal.PhysicalMin)
 		if err != nil {
+			return fmt.Errorf("Signal[%d].PhysicalMin: %w", i, err)
+		}
+		if _, err := writer.WriteString(str); err != nil {
 			return err
 		}
 	}
-
-	for _, signal := range ew.hdr.Signals {
-		_, err = writer.WriteString(formatPhysicalValue(signal.PhysicalMax))
+	for i, signal := range ew.hdr.Signals {
+		str, err := formatPhysicalValue(signal.PhysicalMax)
 		if err != nil {
+			return fmt.Errorf("Signal[%d].PhysicalMax: %w", i, err)
+		}
+		if _, err := writer.WriteString(str); err != nil {
 			return err
 		}
 	}
-
-	for _, signal := range ew.hdr.Signals {
-		_, err = writer.WriteString(fmt.Sprintf("%-8d", signal.DigitalMin))
-		if err != nil {
+	for i, signal := range ew.hdr.Signals {
+		if err := writeChecked(fmt.Sprintf("Signal[%d].DigitalMin", i), fmt.Sprintf("%d", signal.DigitalMin), 8); err != nil {
 			return err
 		}
 	}
-
-	for _, signal := range ew.hdr.Signals {
-		_, err = writer.WriteString(fmt.Sprintf("%-8d", signal.DigitalMax))
-		if err != nil {
+	for i, signal := range ew.hdr.Signals {
+		if err := writeChecked(fmt.Sprintf("Signal[%d].DigitalMax", i), fmt.Sprintf("%d", signal.DigitalMax), 8); err != nil {
 			return err
 		}
 	}
-
-	for _, signal := range ew.hdr.Signals {
-		_, err = writer.WriteString(fmt.Sprintf("%-80s", signal.Prefiltering))
-		if err != nil {
+	for i, signal := range ew.hdr.Signals {
+		if err := writeChecked(fmt.Sprintf("Signal[%d].Prefiltering", i), signal.Prefiltering, 80); err != nil {
 			return err
 		}
 	}
-
-	for _, signal := range ew.hdr.Signals {
-		_, err = writer.WriteString(fmt.Sprintf("%-8d", signal.SamplesPerRecord))
-		if err != nil {
+	for i, signal := range ew.hdr.Signals {
+		if err := writeChecked(fmt.Sprintf("Signal[%d].SamplesPerRecord", i), fmt.Sprintf("%d", signal.SamplesPerRecord), 8); err != nil {
 			return err
 		}
 	}
 
 	// Reserved for future use
-	for range ew.hdr.Signals {
-		_, err = writer.WriteString(fmt.Sprintf("%-32s", ""))
-		if err != nil {
+	for i := range ew.hdr.Signals {
+		if err := writeChecked(fmt.Sprintf("Signal[%d].Reserved", i), "", 32); err != nil {
 			return err
 		}
 	}
@@ -237,14 +235,4 @@ func convertPhysicalToDigital(physical float64, pmin, pmax float64, dmin, dmax i
 	}
 	digital := ((physical - pmin) * (float64(dmax - dmin)) / (pmax - pmin)) + float64(dmin)
 	return int16(digital)
-}
-
-func formatPhysicalValue(val float64) string {
-	// Try with 2 decimal places
-	s := fmt.Sprintf("%.2f", val)
-	if len(s) > 8 {
-		// Fall back to no decimal
-		s = fmt.Sprintf("%.0f", val)
-	}
-	return fmt.Sprintf("%-8s", s)
 }
